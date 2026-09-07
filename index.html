@@ -1,20 +1,480 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Magrizzly Web</title>
-    <link rel="stylesheet" href="./public/styles/site.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f19">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Stationary Bike Tracker</title>
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="./public/styles/site.css">
+  
+  <!-- Supabase JS Client (v2 CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <header class="hero">
-        <div class="container">
-            <h1>Home Page</h1>
-            <p class="lead">Lorem ipsum, dolor sit amet consectetur adipisicing elit. Velit impedit placeat laborum.</p>
+  <div class="app-container">
+
+    <!-- Toast Notification Overlay -->
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+    <!-- App Header -->
+    <header class="app-header">
+      <div class="brand-wrapper">
+        <div class="brand-icon-box">
+          <!-- Bicycle SVG Icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="5.5" cy="17.5" r="3.5"></circle>
+            <circle cx="18.5" cy="17.5" r="3.5"></circle>
+            <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9 9l3-3 3 3"></path>
+            <path d="M5.5 17.5l5.5-5.5 2 2"></path>
+          </svg>
         </div>
+        <div>
+          <h1 class="brand-title">VeloLog</h1>
+          <span class="brand-subtitle">Stationary Bike</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Online/Offline & Sync Status Indicator -->
+        <div id="connection-pill" class="status-pill" title="Network status">
+          <span class="status-dot"></span>
+          <span id="connection-status-text">Online</span>
+          <span id="sync-pending-badge" class="sync-badge">0 pending</span>
+        </div>
+
+        <!-- Settings Modal Trigger -->
+        <button type="button" id="btn-open-settings" class="btn-icon" aria-label="Settings" title="Supabase Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
     </header>
-    <main class="container">
-        <p>Commodi, aliquam ea dolor blanditiis accusamus illum sunt soluta, ducimus ab optio voluptas nam explicabo eaque, quidem consequatur?</p>
+
+    <!-- Scrollable Main Viewport Area -->
+    <main class="main-content">
+
+      <!-- ===================================================================
+           TAB 1: RECORD WORKOUT (DEFAULT)
+           =================================================================== -->
+      <section id="tab-record" class="tab-pane active" aria-labelledby="tab-btn-record">
+        <div class="page-header">
+          <h2>Record Workout</h2>
+          <p>Log your stationary bike session metrics</p>
+        </div>
+
+        <form id="workout-form" class="workout-form" novalidate>
+          <!-- Exercise Type -->
+          <div class="form-group">
+            <label for="exercise-type" class="form-label">Exercise Type</label>
+            <div class="select-wrapper">
+              <select id="exercise-type" name="exercise_type" class="select-control">
+                <option value="stationary_bicycle" selected>Stationary Bicycle</option>
+                <option value="indoor_spin">Indoor Spin / Interval</option>
+                <option value="endurance_ride">Endurance Ride</option>
+                <option value="recovery_ride">Recovery Ride</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Distance & Duration Grid -->
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="distance-km" class="form-label">
+                Distance <span class="unit">(km)</span>
+              </label>
+              <div class="input-wrapper">
+                <input 
+                  type="number" 
+                  id="distance-km" 
+                  name="distance_km" 
+                  class="input-control" 
+                  step="0.01" 
+                  min="0" 
+                  placeholder="15.2" 
+                  inputmode="decimal"
+                  required
+                >
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="duration-minutes" class="form-label">
+                Duration <span class="unit">(min)</span>
+              </label>
+              <div class="input-wrapper">
+                <input 
+                  type="number" 
+                  id="duration-minutes" 
+                  name="duration_minutes" 
+                  class="input-control" 
+                  step="1" 
+                  min="1" 
+                  placeholder="40" 
+                  inputmode="numeric"
+                  required
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Calories Burned -->
+          <div class="form-group">
+            <label for="calories-burned" class="form-label">
+              Calories Burned <span class="unit">(kcal)</span>
+            </label>
+            <div class="input-wrapper">
+              <input 
+                type="number" 
+                id="calories-burned" 
+                name="calories_burned" 
+                class="input-control" 
+                step="1" 
+                min="0" 
+                placeholder="320" 
+                inputmode="numeric"
+                required
+              >
+            </div>
+          </div>
+
+          <!-- Bike Program Slider (Scale 1-10) -->
+          <div class="form-group">
+            <div class="slider-container">
+              <div class="slider-header">
+                <label for="bike-program" class="form-label" style="margin: 0;">Bike Program</label>
+                <span class="slider-badge" id="bike-program-val">1</span>
+              </div>
+              <div class="slider-controls-row">
+                <button type="button" class="step-btn" data-target="bike-program" data-step="-1" aria-label="Decrease program">−</button>
+                <input 
+                  type="range" 
+                  id="bike-program" 
+                  name="bike_program_level" 
+                  class="range-input" 
+                  min="1" 
+                  max="10" 
+                  value="1" 
+                  step="1"
+                >
+                <button type="button" class="step-btn" data-target="bike-program" data-step="1" aria-label="Increase program">+</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bike Load Slider (Scale 1-10) -->
+          <div class="form-group">
+            <div class="slider-container">
+              <div class="slider-header">
+                <label for="bike-load" class="form-label" style="margin: 0;">Bike Load / Resistance</label>
+                <span class="slider-badge load-badge" id="bike-load-val">5</span>
+              </div>
+              <div class="slider-controls-row">
+                <button type="button" class="step-btn" data-target="bike-load" data-step="-1" aria-label="Decrease load">−</button>
+                <input 
+                  type="range" 
+                  id="bike-load" 
+                  name="bike_load_level" 
+                  class="range-input load-slider" 
+                  min="1" 
+                  max="10" 
+                  value="5" 
+                  step="1"
+                >
+                <button type="button" class="step-btn" data-target="bike-load" data-step="1" aria-label="Increase load">+</button>
+              </div>
+              <div class="range-scale-markers">
+                <span>1 (Light)</span>
+                <span>5</span>
+                <span>10 (Heavy)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <button type="submit" id="submit-btn" class="btn-submit">
+            <span class="spinner"></span>
+            <span class="btn-text">Save Workout</span>
+          </button>
+        </form>
+      </section>
+
+      <!-- ===================================================================
+           TAB 2: STATS PAGE
+           =================================================================== -->
+      <section id="tab-stats" class="tab-pane" aria-labelledby="tab-btn-stats">
+        <div class="page-header">
+          <h2>Workout Statistics</h2>
+          <p>Analyze your training volume and intensity</p>
+        </div>
+
+        <!-- Period Toggle (Monthly vs All-Time) -->
+        <div class="period-switch-container">
+          <div class="segmented-control" role="tablist">
+            <button type="button" id="btn-period-monthly" class="segmented-btn active" role="tab" aria-selected="true">
+              This Month
+            </button>
+            <button type="button" id="btn-period-all" class="segmented-btn" role="tab" aria-selected="false">
+              All-Time
+            </button>
+          </div>
+        </div>
+
+        <div id="stats-content">
+          <!-- Totals Section -->
+          <h3 class="stats-section-title">Aggregated Totals</h3>
+          <div class="totals-grid">
+            <!-- Total Duration -->
+            <div class="stat-card highlight">
+              <div class="stat-card-header">
+                <span class="stat-card-title">Total Duration</span>
+                <div class="stat-card-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                </div>
+              </div>
+              <div class="stat-value" id="stat-total-dur">0m</div>
+              <div class="stat-subtext">Cumulative ride time</div>
+            </div>
+
+            <!-- Total Distance -->
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-title">Total Distance</span>
+                <div class="stat-card-icon cyan">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+                  </svg>
+                </div>
+              </div>
+              <div class="stat-value" id="stat-total-dist">0.0 <span class="stat-unit">km</span></div>
+              <div class="stat-subtext">Total distance ridden</div>
+            </div>
+
+            <!-- Total Calories -->
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-title">Total Calories</span>
+                <div class="stat-card-icon amber">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+                  </svg>
+                </div>
+              </div>
+              <div class="stat-value" id="stat-total-cal">0 <span class="stat-unit">kcal</span></div>
+              <div class="stat-subtext">Energy burned</div>
+            </div>
+
+            <!-- Total Sessions -->
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-title">Completed Rides</span>
+                <div class="stat-card-icon violet">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                  </svg>
+                </div>
+              </div>
+              <div class="stat-value" id="stat-total-rides">0 <span class="stat-unit">rides</span></div>
+              <div class="stat-subtext">Logged sessions</div>
+            </div>
+          </div>
+
+          <!-- Averages Section -->
+          <h3 class="stats-section-title">Session Averages</h3>
+          <div class="averages-grid">
+            <!-- Avg Duration -->
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-title">Avg Duration</span>
+              </div>
+              <div class="stat-value" id="stat-avg-dur">-- <span class="stat-unit">min</span></div>
+              <div class="stat-subtext">Average session length</div>
+            </div>
+
+            <!-- Avg Distance -->
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-title">Avg Distance</span>
+              </div>
+              <div class="stat-value" id="stat-avg-dist">-- <span class="stat-unit">km</span></div>
+              <div class="stat-subtext">Average distance per ride</div>
+            </div>
+
+            <!-- Avg Calories -->
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-title">Avg Calories</span>
+              </div>
+              <div class="stat-value" id="stat-avg-cal">-- <span class="stat-unit">kcal</span></div>
+              <div class="stat-subtext">Average burn per session</div>
+            </div>
+
+            <!-- Avg Program Level -->
+            <div class="stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-title">Avg Program</span>
+              </div>
+              <div class="stat-value" id="stat-avg-prog">-- <span class="stat-unit">/ 10</span></div>
+              <div class="stat-subtext">Routine difficulty</div>
+            </div>
+
+            <!-- Avg Load Level (Full Width) -->
+            <div class="stat-card full-width">
+              <div class="stat-card-header">
+                <span class="stat-card-title">Avg Bike Load / Resistance</span>
+              </div>
+              <div class="stat-value" id="stat-avg-load">-- <span class="stat-unit">/ 10</span></div>
+              <div class="stat-subtext">Average resistance setting across workouts</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================================================================
+           TAB 3: RECENT WORKOUTS
+           =================================================================== -->
+      <section id="tab-recent" class="tab-pane" aria-labelledby="tab-btn-recent">
+        <div class="recent-header-bar">
+          <div class="page-header" style="margin-bottom: 0;">
+            <h2>Recent Workouts</h2>
+            <p>Last 10 training sessions</p>
+          </div>
+          <button type="button" id="btn-refresh-recent" class="btn-icon" aria-label="Refresh workouts" title="Refresh list">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
+        </div>
+
+        <div id="recent-workouts-list" class="workouts-list">
+          <!-- Dynamically injected via JavaScript -->
+        </div>
+      </section>
+
     </main>
+
+    <!-- =====================================================================
+         FIXED BOTTOM TAB BAR NAVIGATION
+         ===================================================================== -->
+    <nav class="bottom-tab-bar" role="navigation" aria-label="Bottom Navigation">
+      <!-- Tab 1: Record Workout -->
+      <button 
+        type="button" 
+        class="tab-btn active" 
+        id="tab-btn-record" 
+        data-tab="tab-record" 
+        aria-selected="true"
+        aria-label="Record Workout"
+      >
+        <div class="tab-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="16"></line>
+            <line x1="8" y1="12" x2="16" y2="12"></line>
+          </svg>
+        </div>
+        <span class="tab-label">Record</span>
+      </button>
+
+      <!-- Tab 2: Stats -->
+      <button 
+        type="button" 
+        class="tab-btn" 
+        id="tab-btn-stats" 
+        data-tab="tab-stats" 
+        aria-selected="false"
+        aria-label="Workout Stats"
+      >
+        <div class="tab-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+        </div>
+        <span class="tab-label">Stats</span>
+      </button>
+
+      <!-- Tab 3: Recent Workouts -->
+      <button 
+        type="button" 
+        class="tab-btn" 
+        id="tab-btn-recent" 
+        data-tab="tab-recent" 
+        aria-selected="false"
+        aria-label="Recent Workouts"
+      >
+        <div class="tab-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <span class="tab-label">Recent</span>
+      </button>
+    </nav>
+
+    <!-- =====================================================================
+         SETTINGS & SUPABASE CONFIG MODAL
+         ===================================================================== -->
+    <div id="settings-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modal-settings-title">Supabase Settings</h3>
+          <button type="button" id="btn-close-settings" class="btn-icon" aria-label="Close settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-note">
+            Enter your Supabase project credentials. These are securely saved directly in your browser's local storage so you don't need to commit private keys to GitHub.
+          </div>
+
+          <div class="form-group">
+            <label for="cfg-supabase-url" class="form-label">Project URL</label>
+            <input 
+              type="url" 
+              id="cfg-supabase-url" 
+              class="input-control" 
+              placeholder="https://xyzcompany.supabase.co"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="cfg-supabase-key" class="form-label">Anon / Public API Key</label>
+            <input 
+              type="password" 
+              id="cfg-supabase-key" 
+              class="input-control" 
+              placeholder="eyJhbGciOiJIUzI1NiIsIn..."
+            >
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" id="btn-reset-settings" class="btn btn-ghost">Reset</button>
+            <button type="button" id="btn-save-settings" class="btn btn-primary">Save & Connect</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Application Logic -->
+  <script src="./public/js/app.js" defer></script>
 </body>
 </html>

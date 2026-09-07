@@ -531,7 +531,7 @@ function renderStats(workouts) {
   if (avgDistEl) avgDistEl.innerHTML = `${avgDistance.toFixed(1)} <span class="stat-unit">km</span>`;
   if (avgCalEl) avgCalEl.innerHTML = `${Math.round(avgCalories).toLocaleString()} <span class="stat-unit">kcal</span>`;
   if (avgProgEl) avgProgEl.innerHTML = `${avgProgram.toFixed(1)} <span class="stat-unit">/ 10</span>`;
-  if (avgLoadEl) avgLoadEl.innerHTML = `${avgLoad.toFixed(1)} <span class="stat-unit">/ 10</span>`;
+  if (avgLoadEl) avgLoadEl.innerHTML = `${Math.round(avgLoad)} <span class="stat-unit">/ 10</span>`;
 }
 
 function formatDuration(totalMinutes) {

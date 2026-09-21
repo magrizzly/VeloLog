@@ -92,12 +92,251 @@ function removeOfflineWorkout(localId) {
   saveOfflineQueue(filtered);
 }
 
+// ============================================================================
+// 2b. Connection State & Health Tracking
+// ============================================================================
+// State: 'checking' | 'online' | 'paused' | 'disconnected' | 'local' | 'offline'
+let currentConnectionState = 'checking';
+let currentConnectionDetails = '';
 let isSyncing = false;
+
+function isPausedError(error, status) {
+  if (status === 540 || status === 503) return true;
+  if (!error) return false;
+
+  const code = String(error.code || error.statusCode || error.status || '');
+  if (code === '540' || code === '503') return true;
+
+  const msg = [
+    error.message,
+    error.details,
+    error.hint,
+    error.error_description,
+    error.description
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  return (
+    msg.includes('paused') ||
+    msg.includes('project is paused') ||
+    msg.includes('database is paused') ||
+    msg.includes('inactive project') ||
+    msg.includes('540')
+  );
+}
+
+async function probeSupabase(url, key) {
+  if (!url || !url.startsWith('https://')) return { failed: true, error: new Error('Invalid URL') };
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4500);
+    const res = await fetch(`${url}/rest/v1/workouts?select=id&limit=1`, {
+      method: 'GET',
+      headers: {
+        'apikey': key,
+        'Authorization': `Bearer ${key}`
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+
+    if (res.status === 540 || res.status === 503) {
+      return { paused: true, status: res.status };
+    }
+    const text = await res.text();
+    if (/paused/i.test(text)) {
+      return { paused: true, status: res.status, text };
+    }
+    if (res.ok) {
+      return { ok: true, status: res.status };
+    }
+    return { ok: false, status: res.status, text };
+  } catch (err) {
+    return { failed: true, error: err };
+  }
+}
+
+function setConnectionState(state, details = '') {
+  currentConnectionState = state;
+  currentConnectionDetails = details;
+
+  const statusPill = document.getElementById('connection-pill');
+  const statusText = document.getElementById('connection-status-text');
+  const syncBadge = document.getElementById('sync-pending-badge');
+  const queue = getOfflineQueue();
+
+  if (statusPill && statusText) {
+    statusPill.classList.remove('online', 'offline', 'paused', 'disconnected', 'local', 'checking');
+    statusPill.classList.add(state);
+
+    if (state === 'online') {
+      statusText.textContent = 'Online';
+      statusPill.title = 'Connected to Supabase cloud. Tap for details.';
+      statusPill.setAttribute('aria-label', 'Connection status: Online. Connected to Supabase.');
+    } else if (state === 'paused') {
+      statusText.textContent = 'Paused';
+      statusPill.title = 'Supabase database is paused due to inactivity. Tap for details & resume guide.';
+      statusPill.setAttribute('aria-label', 'Connection status: Paused. Supabase database is paused.');
+    } else if (state === 'disconnected') {
+      statusText.textContent = 'Cloud Offline';
+      statusPill.title = details ? `Cloud error: ${details}. Tap for details.` : 'Cannot reach Supabase. Tap for details.';
+      statusPill.setAttribute('aria-label', 'Connection status: Cloud Offline.');
+    } else if (state === 'local') {
+      statusText.textContent = 'Local Only';
+      statusPill.title = 'Supabase not configured. Workouts saved locally. Tap to configure.';
+      statusPill.setAttribute('aria-label', 'Connection status: Local Only.');
+    } else if (state === 'offline') {
+      statusText.textContent = 'Offline';
+      statusPill.title = 'No internet connection. Workouts saved locally.';
+      statusPill.setAttribute('aria-label', 'Connection status: Offline.');
+    } else if (state === 'checking') {
+      statusText.textContent = 'Checking...';
+      statusPill.title = 'Verifying cloud connection...';
+      statusPill.setAttribute('aria-label', 'Connection status: Checking connection.');
+    }
+  }
+
+  if (syncBadge) {
+    if (queue.length > 0) {
+      syncBadge.textContent = `${queue.length} pending`;
+      syncBadge.classList.add('visible');
+    } else {
+      syncBadge.classList.remove('visible');
+    }
+  }
+
+  // Update inline cloud banner in Recent tab
+  updateCloudBanner(state, details);
+
+  // Update modal contents if currently open
+  updateConnectionModalUI();
+}
+
+function updateCloudBanner(state, details) {
+  const banner = document.getElementById('cloud-status-banner');
+  const titleEl = document.getElementById('cloud-banner-title');
+  const textEl = document.getElementById('cloud-banner-text');
+  const actionBtn = document.getElementById('btn-banner-action');
+  if (!banner || !titleEl || !textEl || !actionBtn) return;
+
+  if (state === 'paused') {
+    banner.style.display = 'flex';
+    banner.classList.remove('banner-disconnected');
+    titleEl.textContent = 'Supabase Project Paused';
+    textEl.textContent = 'Your database is paused due to inactivity. Local rides are safe and will auto-sync once resumed.';
+    actionBtn.textContent = 'Resume ↗';
+  } else if (state === 'disconnected') {
+    banner.style.display = 'flex';
+    banner.classList.add('banner-disconnected');
+    titleEl.textContent = 'Cloud Database Disconnected';
+    textEl.textContent = details ? `Cannot connect: ${details}. Showing local workouts.` : 'Unable to connect to Supabase. Showing local workouts.';
+    actionBtn.textContent = 'Check ⟳';
+  } else if (state === 'offline') {
+    banner.style.display = 'flex';
+    banner.classList.remove('banner-disconnected');
+    titleEl.textContent = 'Device Offline';
+    textEl.textContent = 'No internet connection. Workouts are queued locally and will sync once restored.';
+    actionBtn.textContent = 'OK';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function updateOfflineIndicators() {
+  const queue = getOfflineQueue();
+  const syncBadge = document.getElementById('sync-pending-badge');
+  if (syncBadge) {
+    if (queue.length > 0) {
+      syncBadge.textContent = `${queue.length} pending`;
+      syncBadge.classList.add('visible');
+    } else {
+      syncBadge.classList.remove('visible');
+    }
+  }
+
+  if (!navigator.onLine) {
+    setConnectionState('offline');
+  } else if (!isSupabaseConfigured()) {
+    setConnectionState('local');
+  } else if (currentConnectionState === 'offline' || currentConnectionState === 'local') {
+    checkSupabaseHealth(false);
+  }
+}
+
+async function checkSupabaseHealth(showFeedback = false) {
+  if (!navigator.onLine) {
+    setConnectionState('offline');
+    if (showFeedback) showToast('You are currently offline (no internet).', 'info');
+    return false;
+  }
+
+  if (!isSupabaseConfigured() || !supabaseClient) {
+    setConnectionState('local');
+    if (showFeedback) showToast('Supabase is not configured yet. Configure in Settings (⚙️).', 'info');
+    return false;
+  }
+
+  setConnectionState('checking');
+
+  try {
+    const { data, error, status } = await supabaseClient
+      .from('workouts')
+      .select('id')
+      .limit(1);
+
+    if (!error) {
+      setConnectionState('online');
+      if (showFeedback) showToast('Connected to Supabase cloud! All systems operational.', 'success');
+      const queue = getOfflineQueue();
+      if (queue.length > 0) {
+        syncOfflineWorkouts();
+      }
+      return true;
+    }
+
+    if (isPausedError(error, status)) {
+      setConnectionState('paused', 'Supabase project is paused');
+      if (showFeedback) showToast('Supabase project is paused! Resume it in your Supabase dashboard.', 'warning', 5000);
+      return false;
+    }
+
+    // Secondary direct probe in case client error masked 540/503
+    const { url, key } = getConfig();
+    const probe = await probeSupabase(url, key);
+    if (probe && probe.paused) {
+      setConnectionState('paused', 'Supabase project is paused');
+      if (showFeedback) showToast('Supabase project is paused! Resume it in your Supabase dashboard.', 'warning', 5000);
+      return false;
+    }
+
+    setConnectionState('disconnected', error.message || 'Cannot connect to Supabase');
+    if (showFeedback) showToast(`Connection error: ${error.message || 'Check URL and key'}`, 'error');
+    return false;
+  } catch (err) {
+    if (isPausedError(err)) {
+      setConnectionState('paused', 'Supabase project is paused');
+      if (showFeedback) showToast('Supabase project is paused! Resume it in your Supabase dashboard.', 'warning', 5000);
+      return false;
+    }
+
+    const { url, key } = getConfig();
+    const probe = await probeSupabase(url, key);
+    if (probe && probe.paused) {
+      setConnectionState('paused', 'Supabase project is paused');
+      if (showFeedback) showToast('Supabase project is paused! Resume it in your Supabase dashboard.', 'warning', 5000);
+      return false;
+    }
+
+    setConnectionState('disconnected', err.message || 'Cannot reach Supabase');
+    if (showFeedback) showToast(`Network error: ${err.message || 'Failed to reach Supabase'}`, 'error');
+    return false;
+  }
+}
 
 async function syncOfflineWorkouts() {
   if (isSyncing) return;
   if (!navigator.onLine) return;
   if (!isSupabaseConfigured() || !supabaseClient) return;
+  if (currentConnectionState === 'paused') return;
 
   const queue = getOfflineQueue();
   if (!queue.length) return;
@@ -106,9 +345,15 @@ async function syncOfflineWorkouts() {
   updateOfflineIndicators();
 
   let syncedCount = 0;
+  let encounteredPaused = false;
   const remaining = [];
 
   for (const item of queue) {
+    if (encounteredPaused) {
+      remaining.push(item);
+      continue;
+    }
+
     try {
       const payload = {
         date: item.date || new Date().toISOString(),
@@ -120,15 +365,23 @@ async function syncOfflineWorkouts() {
         bike_load_level: Number(item.bike_load_level)
       };
 
-      const { error } = await supabaseClient.from('workouts').insert([payload]);
+      const { error, status } = await supabaseClient.from('workouts').insert([payload]);
       if (error) {
         console.error('Error syncing workout item:', error);
+        if (isPausedError(error, status)) {
+          encounteredPaused = true;
+          setConnectionState('paused', 'Supabase project is paused');
+        }
         remaining.push(item);
       } else {
         syncedCount++;
       }
     } catch (syncErr) {
       console.error('Network exception during sync:', syncErr);
+      if (isPausedError(syncErr)) {
+        encounteredPaused = true;
+        setConnectionState('paused', 'Supabase project is paused');
+      }
       remaining.push(item);
     }
   }
@@ -137,40 +390,15 @@ async function syncOfflineWorkouts() {
   isSyncing = false;
   updateOfflineIndicators();
 
-  if (syncedCount > 0) {
+  if (encounteredPaused) {
+    showToast('Cannot sync: Supabase project is paused. Resume in dashboard to sync pending rides.', 'warning', 5000);
+  } else if (syncedCount > 0) {
+    setConnectionState('online');
     showToast(`Synced ${syncedCount} offline workout${syncedCount > 1 ? 's' : ''} to cloud!`, 'success');
     if (activeTab === 'tab-recent') {
       loadRecentWorkouts();
     } else if (activeTab === 'tab-stats') {
       loadStats();
-    }
-  }
-}
-
-function updateOfflineIndicators() {
-  const statusPill = document.getElementById('connection-pill');
-  const statusText = document.getElementById('connection-status-text');
-  const syncBadge = document.getElementById('sync-pending-badge');
-  const queue = getOfflineQueue();
-
-  const isOnline = navigator.onLine;
-
-  if (statusPill && statusText) {
-    if (isOnline) {
-      statusPill.classList.remove('offline');
-      statusText.textContent = 'Online';
-    } else {
-      statusPill.classList.add('offline');
-      statusText.textContent = 'Offline';
-    }
-  }
-
-  if (syncBadge) {
-    if (queue.length > 0) {
-      syncBadge.textContent = `${queue.length} pending`;
-      syncBadge.classList.add('visible');
-    } else {
-      syncBadge.classList.remove('visible');
     }
   }
 }
@@ -342,7 +570,7 @@ function setupWorkoutForm() {
       submitBtn.disabled = true;
 
       try {
-        const canSyncOnline = navigator.onLine && isSupabaseConfigured() && supabaseClient;
+        const canSyncOnline = navigator.onLine && isSupabaseConfigured() && supabaseClient && currentConnectionState !== 'paused';
 
         if (!canSyncOnline) {
           // Enqueue offline
@@ -351,29 +579,45 @@ function setupWorkoutForm() {
 
           if (!isSupabaseConfigured()) {
             showToast('Workout saved locally! (Configure Supabase in ⚙️ settings to sync to cloud)', 'info', 5000);
+          } else if (currentConnectionState === 'paused') {
+            showToast('Supabase is paused. Workout saved locally and will auto-sync once resumed!', 'warning', 5000);
           } else {
             showToast('Workout saved locally (offline). Will sync when reconnected!', 'info', 4000);
           }
         } else {
           // Insert directly to Supabase
-          const { error } = await supabaseClient.from('workouts').insert([workoutRecord]);
+          const { error, status } = await supabaseClient.from('workouts').insert([workoutRecord]);
 
           if (error) {
             console.error('Supabase insert error:', error);
-            // Fallback to offline queue
-            enqueueOfflineWorkout(workoutRecord);
-            resetWorkoutForm();
-            showToast('Cloud save failed, queued locally. Will retry automatically!', 'info', 4000);
+            if (isPausedError(error, status)) {
+              setConnectionState('paused', 'Supabase project is paused');
+              enqueueOfflineWorkout(workoutRecord);
+              resetWorkoutForm();
+              showToast('Supabase is paused! Workout saved locally and will auto-sync once resumed.', 'warning', 5000);
+            } else {
+              setConnectionState('disconnected', error.message);
+              enqueueOfflineWorkout(workoutRecord);
+              resetWorkoutForm();
+              showToast('Cloud save failed, queued locally. Will retry automatically!', 'info', 4000);
+            }
           } else {
+            setConnectionState('online');
             resetWorkoutForm();
             showToast('Workout successfully recorded! 🚴‍♂️', 'success');
           }
         }
       } catch (err) {
         console.error('Submission error:', err);
+        if (isPausedError(err)) {
+          setConnectionState('paused', 'Supabase project is paused');
+          showToast('Supabase is paused! Workout saved locally and will auto-sync once resumed.', 'warning', 5000);
+        } else {
+          setConnectionState('disconnected', err.message);
+          showToast('Saved to local offline queue!', 'info');
+        }
         enqueueOfflineWorkout(workoutRecord);
         resetWorkoutForm();
-        showToast('Saved to local offline queue!', 'info');
       } finally {
         submitBtn.classList.remove('loading');
         submitBtn.disabled = false;
@@ -435,20 +679,31 @@ function setupStatsListeners() {
 async function fetchAllWorkoutsData() {
   let remoteWorkouts = [];
 
-  if (isSupabaseConfigured() && supabaseClient && navigator.onLine) {
+  if (isSupabaseConfigured() && supabaseClient && navigator.onLine && currentConnectionState !== 'paused') {
     try {
-      const { data, error } = await supabaseClient
+      const { data, error, status } = await supabaseClient
         .from('workouts')
         .select('*')
         .order('date', { ascending: false });
 
       if (!error && Array.isArray(data)) {
         remoteWorkouts = data;
+        setConnectionState('online');
       } else if (error) {
         console.warn('Error fetching stats workouts from Supabase:', error);
+        if (isPausedError(error, status)) {
+          setConnectionState('paused', 'Supabase project is paused');
+        } else {
+          setConnectionState('disconnected', error.message);
+        }
       }
     } catch (err) {
       console.warn('Network exception fetching stats:', err);
+      if (isPausedError(err)) {
+        setConnectionState('paused', 'Supabase project is paused');
+      } else {
+        setConnectionState('disconnected', err.message);
+      }
     }
   }
 
@@ -555,9 +810,9 @@ async function loadRecentWorkouts() {
 
   let remoteWorkouts = [];
 
-  if (isSupabaseConfigured() && supabaseClient && navigator.onLine) {
+  if (isSupabaseConfigured() && supabaseClient && navigator.onLine && currentConnectionState !== 'paused') {
     try {
-      const { data, error } = await supabaseClient
+      const { data, error, status } = await supabaseClient
         .from('workouts')
         .select('*')
         .order('date', { ascending: false })
@@ -565,11 +820,22 @@ async function loadRecentWorkouts() {
 
       if (!error && Array.isArray(data)) {
         remoteWorkouts = data;
+        setConnectionState('online');
       } else if (error) {
         console.warn('Error fetching recent workouts:', error);
+        if (isPausedError(error, status)) {
+          setConnectionState('paused', 'Supabase project is paused');
+        } else {
+          setConnectionState('disconnected', error.message);
+        }
       }
     } catch (err) {
       console.warn('Network exception loading recent workouts:', err);
+      if (isPausedError(err)) {
+        setConnectionState('paused', 'Supabase project is paused');
+      } else {
+        setConnectionState('disconnected', err.message);
+      }
     }
   }
 
@@ -703,6 +969,7 @@ function setupSettingsModal() {
   const closeBtn = document.getElementById('btn-close-settings');
   const saveBtn = document.getElementById('btn-save-settings');
   const resetBtn = document.getElementById('btn-reset-settings');
+  const testBtn = document.getElementById('btn-test-settings');
 
   const urlInput = document.getElementById('cfg-supabase-url');
   const keyInput = document.getElementById('cfg-supabase-key');
@@ -725,6 +992,38 @@ function setupSettingsModal() {
   if (modal) {
     modal.addEventListener('click', e => {
       if (e.target === modal) modal.classList.remove('open');
+    });
+  }
+
+  if (testBtn) {
+    testBtn.addEventListener('click', async () => {
+      const url = urlInput ? urlInput.value.trim() : '';
+      const key = keyInput ? keyInput.value.trim() : '';
+      if (!url || !url.startsWith('https://')) {
+        showToast('Supabase URL must start with https://', 'error');
+        return;
+      }
+      if (!key) {
+        showToast('Please enter your Supabase anon/public key', 'error');
+        return;
+      }
+
+      testBtn.disabled = true;
+      testBtn.textContent = 'Testing...';
+
+      const probe = await probeSupabase(url, key);
+      testBtn.disabled = false;
+      testBtn.textContent = 'Test Connection';
+
+      if (probe && probe.paused) {
+        showToast('Supabase project is PAUSED! Resume it in your Supabase dashboard.', 'warning', 6000);
+      } else if (probe && probe.ok) {
+        showToast('Connection test successful! 🎉', 'success');
+      } else if (probe && (probe.status === 401 || probe.status === 403)) {
+        showToast('Authentication failed: Invalid Anon Key', 'error');
+      } else {
+        showToast(`Connection failed (${probe?.text || probe?.error?.message || 'Check URL and key'})`, 'error');
+      }
     });
   }
 
@@ -751,13 +1050,14 @@ function setupSettingsModal() {
       }
 
       initSupabase();
-      updateOfflineIndicators();
       modal.classList.remove('open');
 
-      showToast('Settings saved successfully!', 'success');
+      showToast('Settings saved!', 'success');
 
       if (isSupabaseConfigured() && navigator.onLine) {
-        syncOfflineWorkouts();
+        await checkSupabaseHealth(false);
+      } else {
+        updateOfflineIndicators();
       }
     });
   }
@@ -771,6 +1071,185 @@ function setupSettingsModal() {
       modal.classList.remove('open');
       showToast('Settings reset to defaults', 'info');
     });
+  }
+}
+
+// ============================================================================
+// 8b. Connection Status Modal & Detail View
+// ============================================================================
+function setupConnectionStatusModal() {
+  const modal = document.getElementById('connection-status-modal');
+  const openPill = document.getElementById('connection-pill');
+  const closeBtn = document.getElementById('btn-close-conn-status');
+  const bannerActionBtn = document.getElementById('btn-banner-action');
+
+  if (openPill) {
+    openPill.addEventListener('click', () => {
+      updateConnectionModalUI();
+      if (modal) modal.classList.add('open');
+    });
+
+    openPill.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        updateConnectionModalUI();
+        if (modal) modal.classList.add('open');
+      }
+    });
+  }
+
+  if (closeBtn && modal) {
+    closeBtn.addEventListener('click', () => {
+      modal.classList.remove('open');
+    });
+  }
+
+  if (modal) {
+    modal.addEventListener('click', e => {
+      if (e.target === modal) modal.classList.remove('open');
+    });
+  }
+
+  if (bannerActionBtn) {
+    bannerActionBtn.addEventListener('click', async () => {
+      if (currentConnectionState === 'paused') {
+        window.open('https://supabase.com/dashboard', '_blank');
+      } else if (currentConnectionState === 'disconnected') {
+        await checkSupabaseHealth(true);
+      } else if (currentConnectionState === 'local') {
+        const settingsModal = document.getElementById('settings-modal');
+        if (settingsModal) settingsModal.classList.add('open');
+      } else if (currentConnectionState === 'offline') {
+        showToast('Workouts will auto-sync when your device reconnects to the internet.', 'info');
+      }
+    });
+  }
+}
+
+function updateConnectionModalUI() {
+  const badge = document.getElementById('conn-modal-badge');
+  const label = document.getElementById('conn-modal-status-label');
+  const desc = document.getElementById('conn-modal-description');
+  const internetEl = document.getElementById('conn-info-internet');
+  const supabaseEl = document.getElementById('conn-info-supabase');
+  const queueEl = document.getElementById('conn-info-queue');
+  const actionsEl = document.getElementById('conn-modal-actions');
+
+  const queue = getOfflineQueue();
+  if (queueEl) {
+    queueEl.textContent = `${queue.length} workout${queue.length === 1 ? '' : 's'}${queue.length > 0 ? ' pending sync' : ''}`;
+  }
+
+  const isNetOnline = navigator.onLine;
+  if (internetEl) {
+    internetEl.textContent = isNetOnline ? 'Connected' : 'Disconnected (Offline)';
+    internetEl.style.color = isNetOnline ? 'var(--accent-emerald)' : 'var(--accent-amber)';
+  }
+
+  if (badge) {
+    badge.className = `conn-modal-status-badge ${currentConnectionState}`;
+  }
+
+  if (label) {
+    if (currentConnectionState === 'online') label.textContent = 'Online';
+    else if (currentConnectionState === 'paused') label.textContent = 'Cloud Paused';
+    else if (currentConnectionState === 'disconnected') label.textContent = 'Cloud Offline';
+    else if (currentConnectionState === 'local') label.textContent = 'Local Only';
+    else if (currentConnectionState === 'offline') label.textContent = 'Device Offline';
+    else label.textContent = 'Checking...';
+  }
+
+  if (supabaseEl) {
+    if (!isSupabaseConfigured()) {
+      supabaseEl.textContent = 'Not Configured';
+      supabaseEl.style.color = 'var(--text-secondary)';
+    } else if (currentConnectionState === 'online') {
+      supabaseEl.textContent = 'Connected (Active)';
+      supabaseEl.style.color = 'var(--accent-emerald)';
+    } else if (currentConnectionState === 'paused') {
+      supabaseEl.textContent = 'Paused (Inactive)';
+      supabaseEl.style.color = '#fb923c';
+    } else if (currentConnectionState === 'disconnected') {
+      supabaseEl.textContent = 'Unreachable / Error';
+      supabaseEl.style.color = 'var(--accent-rose)';
+    } else {
+      supabaseEl.textContent = 'Checking...';
+      supabaseEl.style.color = 'var(--text-secondary)';
+    }
+  }
+
+  if (desc) {
+    if (currentConnectionState === 'paused') {
+      desc.innerHTML = `
+        <div style="color: #fb923c; font-weight: 700; margin-bottom: 4px;">⚠️ Supabase Project is Paused</div>
+        <p>Your Supabase project has been paused due to inactivity (standard on free tier projects after 7 days).</p>
+        <p style="margin-top: 6px;">Any rides you record right now are safely stored in your browser's offline queue and will automatically sync once your project resumes.</p>
+        <p style="margin-top: 8px;"><strong>To restore:</strong> Go to the Supabase Dashboard, select your project, and click <em>"Resume project"</em>.</p>
+      `;
+    } else if (currentConnectionState === 'online') {
+      desc.innerHTML = `
+        <div style="color: var(--accent-emerald); font-weight: 700; margin-bottom: 4px;">✓ Connected to Cloud</div>
+        <p>Supabase is active and reachable. Workouts and stats are synced in real time.</p>
+      `;
+    } else if (currentConnectionState === 'disconnected') {
+      desc.innerHTML = `
+        <div style="color: var(--accent-rose); font-weight: 700; margin-bottom: 4px;">✕ Cloud Disconnected</div>
+        <p>${escapeHtml(currentConnectionDetails || 'Unable to reach your Supabase database. Workouts will be saved locally.')}</p>
+      `;
+    } else if (currentConnectionState === 'local') {
+      desc.innerHTML = `
+        <div style="color: var(--text-secondary); font-weight: 700; margin-bottom: 4px;">Local Storage Mode</div>
+        <p>Supabase project credentials have not been configured yet. Workouts are currently stored exclusively in this browser.</p>
+      `;
+    } else if (currentConnectionState === 'offline') {
+      desc.innerHTML = `
+        <div style="color: var(--accent-amber); font-weight: 700; margin-bottom: 4px;">No Internet Connection</div>
+        <p>Your device is offline. You can still record rides; they are stored locally and will upload automatically once internet is restored.</p>
+      `;
+    } else {
+      desc.innerHTML = `<p>Checking cloud connection status...</p>`;
+    }
+  }
+
+  if (actionsEl) {
+    if (currentConnectionState === 'paused') {
+      actionsEl.innerHTML = `
+        <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="text-decoration:none; display:flex; align-items:center; justify-content:center; gap:6px;">
+          Open Supabase Dashboard ↗
+        </a>
+        <button type="button" id="btn-conn-check-now" class="btn btn-primary">Check Connection</button>
+      `;
+    } else if (currentConnectionState === 'local') {
+      actionsEl.innerHTML = `
+        <button type="button" id="btn-open-settings-from-conn" class="btn btn-primary">Configure Supabase (⚙️)</button>
+      `;
+      const btnOpenCfg = document.getElementById('btn-open-settings-from-conn');
+      if (btnOpenCfg) {
+        btnOpenCfg.addEventListener('click', () => {
+          const connModal = document.getElementById('connection-status-modal');
+          const settingsModal = document.getElementById('settings-modal');
+          if (connModal) connModal.classList.remove('open');
+          if (settingsModal) settingsModal.classList.add('open');
+        });
+      }
+      return;
+    } else {
+      actionsEl.innerHTML = `
+        <button type="button" id="btn-conn-check-now" class="btn btn-primary">Check Connection</button>
+      `;
+    }
+
+    const newCheckBtn = document.getElementById('btn-conn-check-now');
+    if (newCheckBtn) {
+      newCheckBtn.addEventListener('click', async () => {
+        newCheckBtn.disabled = true;
+        newCheckBtn.textContent = 'Checking...';
+        await checkSupabaseHealth(true);
+        newCheckBtn.disabled = false;
+        newCheckBtn.textContent = 'Check Connection';
+        updateConnectionModalUI();
+      });
+    }
   }
 }
 
@@ -792,32 +1271,45 @@ document.addEventListener('DOMContentLoaded', () => {
   // Recent workouts refresh button
   const btnRefreshRecent = document.getElementById('btn-refresh-recent');
   if (btnRefreshRecent) {
-    btnRefreshRecent.addEventListener('click', () => {
+    btnRefreshRecent.addEventListener('click', async () => {
+      if (currentConnectionState === 'paused' || currentConnectionState === 'disconnected') {
+        await checkSupabaseHealth(false);
+      }
       loadRecentWorkouts();
     });
   }
 
-  // Setup form, stats, and settings modal
+  // Setup form, stats, modals
   setupWorkoutForm();
   setupStatsListeners();
   setupSettingsModal();
+  setupConnectionStatusModal();
 
   // Network and sync listeners
   window.addEventListener('online', () => {
-    updateOfflineIndicators();
     showToast('Internet connection restored!', 'success');
-    syncOfflineWorkouts();
+    checkSupabaseHealth(false);
   });
 
   window.addEventListener('offline', () => {
-    updateOfflineIndicators();
+    setConnectionState('offline');
     showToast('You are currently offline. New workouts will be stored locally.', 'info');
   });
 
+  // Automatically check connection when user focuses back on the tab (e.g. after resuming in Supabase dashboard)
+  window.addEventListener('focus', () => {
+    if (currentConnectionState === 'paused' || currentConnectionState === 'disconnected') {
+      checkSupabaseHealth(false);
+    }
+  });
+
   // Initial indicator update and sync
-  updateOfflineIndicators();
-  if (navigator.onLine && isSupabaseConfigured()) {
-    syncOfflineWorkouts();
+  if (!navigator.onLine) {
+    setConnectionState('offline');
+  } else if (!isSupabaseConfigured()) {
+    setConnectionState('local');
+  } else {
+    checkSupabaseHealth(false);
   }
 
   // Expose switchTab globally for inline buttons

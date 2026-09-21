@@ -39,9 +39,9 @@
 
       <div class="header-actions">
         <!-- Online/Offline & Sync Status Indicator -->
-        <div id="connection-pill" class="status-pill" title="Network status">
+        <div id="connection-pill" class="status-pill checking" role="button" tabindex="0" title="Checking connection status..." aria-label="Connection status">
           <span class="status-dot"></span>
-          <span id="connection-status-text">Online</span>
+          <span id="connection-status-text">Checking...</span>
           <span id="sync-pending-badge" class="sync-badge">0 pending</span>
         </div>
 
@@ -346,6 +346,22 @@
             </svg>
           </button>
         </div>
+ 
+        <!-- Cloud Status Alert Banner (Shown dynamically when paused, disconnected, or local) -->
+        <div id="cloud-status-banner" class="cloud-banner" style="display: none;" role="alert">
+          <div class="cloud-banner-left">
+            <svg class="cloud-banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <div>
+              <div class="cloud-banner-title" id="cloud-banner-title">Supabase Project Paused</div>
+              <div class="cloud-banner-text" id="cloud-banner-text">Showing local workouts only. Resume your database in the Supabase dashboard to access cloud history.</div>
+            </div>
+          </div>
+          <button type="button" class="cloud-banner-btn" id="btn-banner-action">Resume ↗</button>
+        </div>
 
         <div id="recent-workouts-list" class="workouts-list">
           <!-- Dynamically injected via JavaScript -->
@@ -455,8 +471,55 @@
           </div>
 
           <div class="modal-actions">
+            <button type="button" id="btn-test-settings" class="btn btn-secondary">Test Connection</button>
             <button type="button" id="btn-reset-settings" class="btn btn-ghost">Reset</button>
             <button type="button" id="btn-save-settings" class="btn btn-primary">Save & Connect</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         CONNECTION & CLOUD STATUS MODAL
+         ===================================================================== -->
+    <div id="connection-status-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-conn-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modal-conn-title">Connection Status</h3>
+          <button type="button" id="btn-close-conn-status" class="btn-icon" aria-label="Close connection status">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="conn-modal-badge" class="conn-modal-status-badge online">
+            <span class="status-dot"></span>
+            <span id="conn-modal-status-label">Online</span>
+          </div>
+
+          <div id="conn-modal-description" class="modal-note">
+            Checking connection...
+          </div>
+
+          <div class="conn-info-rows">
+            <div class="conn-info-row">
+              <span class="conn-info-label">Device Internet</span>
+              <span class="conn-info-val" id="conn-info-internet">Connected</span>
+            </div>
+            <div class="conn-info-row">
+              <span class="conn-info-label">Supabase Cloud</span>
+              <span class="conn-info-val" id="conn-info-supabase">Checking...</span>
+            </div>
+            <div class="conn-info-row">
+              <span class="conn-info-label">Pending Sync Queue</span>
+              <span class="conn-info-val" id="conn-info-queue">0 workouts</span>
+            </div>
+          </div>
+
+          <div class="modal-actions" id="conn-modal-actions">
+            <button type="button" id="btn-conn-check-now" class="btn btn-primary">Check Connection</button>
           </div>
         </div>
       </div>

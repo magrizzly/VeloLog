@@ -136,6 +136,18 @@ html, body {
   color: var(--accent-emerald);
   border: 1px solid rgba(16, 185, 129, 0.3);
   transition: all 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.status-pill:hover {
+  filter: brightness(1.2);
+  transform: translateY(-1px);
+}
+
+.status-pill:focus-visible {
+  outline: 2px solid var(--accent-emerald);
+  outline-offset: 2px;
 }
 
 .status-dot {
@@ -144,8 +156,10 @@ html, body {
   border-radius: 50%;
   background-color: var(--accent-emerald);
   box-shadow: 0 0 8px var(--accent-emerald);
+  flex-shrink: 0;
 }
 
+/* Offline state (no local device internet) */
 .status-pill.offline {
   background-color: rgba(245, 158, 11, 0.15);
   color: var(--accent-amber);
@@ -155,6 +169,62 @@ html, body {
 .status-pill.offline .status-dot {
   background-color: var(--accent-amber);
   box-shadow: 0 0 8px var(--accent-amber);
+}
+
+/* Paused state (Supabase project paused due to inactivity) */
+.status-pill.paused {
+  background-color: rgba(249, 115, 22, 0.18);
+  color: #fb923c;
+  border-color: rgba(249, 115, 22, 0.45);
+}
+
+.status-pill.paused .status-dot {
+  background-color: #f97316;
+  box-shadow: 0 0 10px #f97316;
+  animation: pulse-dot 1.8s infinite;
+}
+
+/* Disconnected / Cloud error state */
+.status-pill.disconnected {
+  background-color: rgba(244, 63, 94, 0.15);
+  color: var(--accent-rose);
+  border-color: rgba(244, 63, 94, 0.35);
+}
+
+.status-pill.disconnected .status-dot {
+  background-color: var(--accent-rose);
+  box-shadow: 0 0 8px var(--accent-rose);
+}
+
+/* Local only (Supabase credentials not configured) */
+.status-pill.local {
+  background-color: rgba(148, 163, 184, 0.12);
+  color: var(--text-secondary);
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+.status-pill.local .status-dot {
+  background-color: var(--text-secondary);
+  box-shadow: 0 0 6px rgba(148, 163, 184, 0.4);
+}
+
+/* Checking connection state */
+.status-pill.checking {
+  background-color: rgba(6, 182, 212, 0.12);
+  color: var(--accent-cyan);
+  border-color: rgba(6, 182, 212, 0.3);
+}
+
+.status-pill.checking .status-dot {
+  background-color: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan);
+  animation: pulse-dot 1s infinite;
+}
+
+@keyframes pulse-dot {
+  0% { transform: scale(0.95); opacity: 0.7; }
+  50% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.7; }
 }
 
 .sync-badge {
@@ -1110,3 +1180,179 @@ html, body {
   border: 1px solid var(--border) !important;
   color: var(--text-secondary);
 }
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* ==========================================================================
+   Cloud Status Banner
+   ========================================================================== */
+.cloud-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(249, 115, 22, 0.12);
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 0.8rem;
+  color: #fdba74;
+}
+
+.cloud-banner.banner-disconnected {
+  background: rgba(244, 63, 94, 0.12);
+  border-color: rgba(244, 63, 94, 0.35);
+  color: #fca5a5;
+}
+
+.cloud-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.cloud-banner-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.cloud-banner-title {
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.cloud-banner-text {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+}
+
+.cloud-banner-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.cloud-banner-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ==========================================================================
+   Connection Status Modal
+   ========================================================================== */
+.conn-modal-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-weight: 700;
+  font-size: 0.9rem;
+  width: fit-content;
+}
+
+.conn-modal-status-badge.online {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--accent-emerald);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+.conn-modal-status-badge.online .status-dot {
+  background-color: var(--accent-emerald);
+  box-shadow: 0 0 8px var(--accent-emerald);
+}
+
+.conn-modal-status-badge.paused {
+  background: rgba(249, 115, 22, 0.18);
+  color: #fb923c;
+  border: 1px solid rgba(249, 115, 22, 0.45);
+}
+.conn-modal-status-badge.paused .status-dot {
+  background-color: #f97316;
+  box-shadow: 0 0 8px #f97316;
+}
+
+.conn-modal-status-badge.disconnected {
+  background: rgba(244, 63, 94, 0.15);
+  color: var(--accent-rose);
+  border: 1px solid rgba(244, 63, 94, 0.4);
+}
+.conn-modal-status-badge.disconnected .status-dot {
+  background-color: var(--accent-rose);
+  box-shadow: 0 0 8px var(--accent-rose);
+}
+
+.conn-modal-status-badge.local {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--text-secondary);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+.conn-modal-status-badge.local .status-dot {
+  background-color: var(--text-secondary);
+  box-shadow: 0 0 6px rgba(148, 163, 184, 0.4);
+}
+
+.conn-modal-status-badge.offline {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--accent-amber);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+.conn-modal-status-badge.offline .status-dot {
+  background-color: var(--accent-amber);
+  box-shadow: 0 0 8px var(--accent-amber);
+}
+
+.conn-modal-status-badge.checking {
+  background: rgba(6, 182, 212, 0.15);
+  color: var(--accent-cyan);
+  border: 1px solid rgba(6, 182, 212, 0.35);
+}
+.conn-modal-status-badge.checking .status-dot {
+  background-color: var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan);
+}
+
+.conn-info-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+
+.conn-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.conn-info-label {
+  color: var(--text-secondary);
+}
+
+.conn-info-val {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+

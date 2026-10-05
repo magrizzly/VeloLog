@@ -22,7 +22,7 @@ Built with vanilla **HTML5**, **CSS3**, and **JavaScript**, backed by **Supabase
   - Displays the last 10 workout sessions in clean chronological cards.
   - Relative dates ("Today", "Yesterday", or formatted dates), key metrics, and program/load chips.
 - 🌙 **Tab 4: Circadian Sleep Coaching**:
-  - **The Shift-and-Expand Algorithm**: Anchor wake time circadian locking with rolling 15-minute bedtime shifts awarded after 3 consecutive consolidated nights (latency $\le 20$ min, no interruptions, no premature awakenings). If premature awakenings occur, bedtime remains steady to consolidate sleep pressure.
+  - **The Shift-and-Expand Algorithm**: Anchor wake time circadian locking with rolling 15-minute bedtime shifts awarded after 3 consecutive consolidated nights (latency <= 20 min, no interruptions, no premature awakenings). If premature awakenings occur, bedtime remains steady to consolidate sleep pressure.
   - **Daily Circadian Cue Checklist**: Real-time behavioral cue tracking (Morning daylight 15–20m, Caffeine cut-off by 2:00 PM, Light dimming 90m pre-bed, Core temperature drop warm bath/shower 60–90m pre-bed).
   - **Clinical Protocols**: Interactive 20-minute rule guide for nighttime awakenings (low-stimulus engagement, non-stimulating UI, zero time cues) and delayed morning light warning on early awakenings to prevent SCN phase-advances.
 - ⚡ **Offline-First & Auto-Sync**:
@@ -141,8 +141,8 @@ Open `http://localhost:3000` (or `http://localhost:8000`) in your browser or mob
 | `bedtime` | `TIME` | Bedtime recorded |
 | `wake_time` | `TIME` | Wake time recorded |
 | `latency_minutes` | `INTEGER` | Time taken to fall asleep (minutes) |
-| `fell_asleep_under_20min`| `BOOLEAN` | True if latency $\le 20$ minutes |
-| `slept_through` | `BOOLEAN` | True if no disruptive awakenings ($> 20$m) |
+| `fell_asleep_under_20min`| `BOOLEAN` | True if latency <= 20 minutes |
+| `slept_through` | `BOOLEAN` | True if no disruptive awakenings (> 20 min) |
 | `early_awakening` | `BOOLEAN` | True if awoke prematurely prior to anchor time |
 | `night_interruptions` | `INTEGER` | Count of nighttime awakenings |
 | `is_consolidated_success` | `BOOLEAN` | Night met all consolidation criteria |

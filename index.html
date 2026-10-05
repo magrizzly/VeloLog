@@ -15,6 +15,7 @@
   
   <!-- CSS Stylesheet -->
   <link rel="stylesheet" href="./public/styles/site.css">
+  <link rel="stylesheet" href="./public/styles/sleep.css">
   
   <!-- Supabase JS Client (v2 CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -368,6 +369,168 @@
         </div>
       </section>
 
+      <!-- ===================================================================
+           TAB 4: CIRCADIAN SLEEP COACHING
+           =================================================================== -->
+      <section id="tab-sleep" class="tab-pane" aria-labelledby="tab-btn-sleep">
+        <div class="sleep-header-row">
+          <div class="page-header">
+            <h2>Circadian Sleep</h2>
+            <p>Shift-and-expand sleep consolidation</p>
+          </div>
+          <button type="button" id="btn-open-anchor-cfg" class="btn-icon" aria-label="Calibrate Anchor Wake Time" title="Calibrate Anchor Settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 14 14"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Circadian Hero Clock & Streak Tracker -->
+        <div class="circadian-hero-card" id="circadian-hero-card">
+          <div class="hero-clock-grid">
+            <div class="clock-metric-box highlight-anchor">
+              <span class="clock-metric-label">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                Anchor Wake
+              </span>
+              <span class="clock-metric-val" id="val-anchor-wake">07:00 AM</span>
+              <span class="clock-metric-sub">Fixed Circadian Lock</span>
+            </div>
+
+            <div class="clock-metric-box highlight-bedtime">
+              <span class="clock-metric-label">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+                Target Bedtime
+              </span>
+              <span class="clock-metric-val" id="val-target-bedtime">11:30 PM</span>
+              <span class="clock-metric-sub" id="val-shifts-applied">0 shifts applied</span>
+            </div>
+          </div>
+
+          <!-- 3-Day Rolling Consolidation Streak Tracker -->
+          <div class="streak-tracker-box">
+            <div class="streak-tracker-header">
+              <span class="streak-tracker-title">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                3-Day Consolidation Streak
+              </span>
+              <span class="streak-count-badge" id="val-streak-count">0 / 3</span>
+            </div>
+            <div class="streak-progress-track">
+              <div class="streak-progress-fill" id="streak-progress-fill" style="width: 0%;"></div>
+            </div>
+            <div class="streak-status-text" id="val-streak-status">
+              Steady Target: Consolidating sleep pressure
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Action Buttons -->
+        <div class="sleep-action-row">
+          <button type="button" id="btn-open-log-sleep" class="btn-sleep-action btn-log">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            Log Sleep
+          </button>
+          <button type="button" id="btn-open-night-guide" class="btn-sleep-action btn-night-guide">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            🌙 20-Min Rule
+          </button>
+        </div>
+
+        <!-- Clinical Warning Alert: Delayed Morning Light (Shown dynamically on early awakening) -->
+        <div id="early-awakening-alert-banner" class="circadian-warning-banner" style="display: none;" role="alert">
+          <svg class="warning-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <div class="warning-content">
+            <div class="warning-title">⚠️ Early Awakening Protocol: Delay Morning Light</div>
+            <div class="warning-text">
+              You logged a premature awakening before your anchor wake time. <span class="warning-highlight">Do NOT expose yourself to bright outdoor daylight or overhead lights until <span id="alert-anchor-time-val">07:00 AM</span>.</span> Exposing your eyes to light early will phase-advance your Suprachiasmatic Nucleus (SCN) and lock in premature awakenings. Keep lighting dim.
+            </div>
+          </div>
+        </div>
+
+        <!-- Circadian Cue Checklist (Daily Habits) -->
+        <div class="cues-section-header">
+          <h3 class="stats-section-title" style="margin-bottom: 0;">Daily Circadian Checklist</h3>
+          <span class="cues-completion-badge" id="cue-completion-badge">0 / 4 Completed</span>
+        </div>
+        <div class="cues-progress-bar">
+          <div class="cues-progress-fill" id="cue-progress-fill" style="width: 0%;"></div>
+        </div>
+
+        <div class="cues-grid">
+          <!-- Cue 1: Morning Light -->
+          <div class="cue-card" id="card-cue-morning-light">
+            <div class="cue-icon-box">☀️</div>
+            <div class="cue-info">
+              <div class="cue-header-row">
+                <span class="cue-title">Morning Daylight</span>
+                <span class="cue-time-badge" id="cue-time-morning-light">7:00 AM – 7:30 AM</span>
+              </div>
+              <p class="cue-desc">Get 15–20 minutes natural outdoor light within 30 minutes of waking to set the master clock.</p>
+            </div>
+            <div class="cue-checkbox-wrapper">
+              <input type="checkbox" id="cb-cue-morning-light" aria-label="Mark Morning Daylight as completed">
+            </div>
+          </div>
+
+          <!-- Cue 2: Caffeine Cut-off -->
+          <div class="cue-card" id="card-cue-caffeine">
+            <div class="cue-icon-box">☕</div>
+            <div class="cue-info">
+              <div class="cue-header-row">
+                <span class="cue-title">Caffeine Cut-off</span>
+                <span class="cue-time-badge" id="cue-time-caffeine">By 2:00 PM</span>
+              </div>
+              <p class="cue-desc">Cease all caffeine intake by 1:00 PM – 2:00 PM to protect adenosine sleep pressure buildup.</p>
+            </div>
+            <div class="cue-checkbox-wrapper">
+              <input type="checkbox" id="cb-cue-caffeine" aria-label="Mark Caffeine Cut-off as completed">
+            </div>
+          </div>
+
+          <!-- Cue 3: Light Dimming -->
+          <div class="cue-card" id="card-cue-dimming">
+            <div class="cue-icon-box">💡</div>
+            <div class="cue-info">
+              <div class="cue-header-row">
+                <span class="cue-title">Overhead Light Dimming</span>
+                <span class="cue-time-badge" id="cue-time-dimming">At 10:00 PM</span>
+              </div>
+              <p class="cue-desc">Aggressively dim overhead lighting and activate screen amber filters 90 min before target bedtime.</p>
+            </div>
+            <div class="cue-checkbox-wrapper">
+              <input type="checkbox" id="cb-cue-dimming" aria-label="Mark Overhead Light Dimming as completed">
+            </div>
+          </div>
+
+          <!-- Cue 4: Core Temp Drop -->
+          <div class="cue-card" id="card-cue-temp-drop">
+            <div class="cue-icon-box">🛁</div>
+            <div class="cue-info">
+              <div class="cue-header-row">
+                <span class="cue-title">Core Temperature Drop</span>
+                <span class="cue-time-badge" id="cue-time-temp-drop">10:00 PM – 10:30 PM</span>
+              </div>
+              <p class="cue-desc">Take a warm shower or bath 60–90 min before bed to trigger vasodilation and drop core body temperature.</p>
+            </div>
+            <div class="cue-checkbox-wrapper">
+              <input type="checkbox" id="cb-cue-temp-drop" aria-label="Mark Core Temperature Drop as completed">
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Sleep History -->
+        <h3 class="stats-section-title">Consolidation History</h3>
+        <div id="sleep-logs-list" class="sleep-logs-container">
+          <!-- Dynamically injected via JavaScript -->
+        </div>
+      </section>
+
     </main>
 
     <!-- =====================================================================
@@ -428,6 +591,23 @@
           </svg>
         </div>
         <span class="tab-label">Recent</span>
+      </button>
+
+      <!-- Tab 4: Sleep Coach -->
+      <button 
+        type="button" 
+        class="tab-btn" 
+        id="tab-btn-sleep" 
+        data-tab="tab-sleep" 
+        aria-selected="false"
+        aria-label="Circadian Sleep"
+      >
+        <div class="tab-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </div>
+        <span class="tab-label">Sleep</span>
       </button>
     </nav>
 
@@ -525,9 +705,241 @@
       </div>
     </div>
 
+    <!-- =====================================================================
+         LOG SLEEP SESSION MODAL
+         ===================================================================== -->
+    <div id="modal-log-sleep" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-sleep-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modal-sleep-title">Log Sleep Session</h3>
+          <button type="button" id="btn-close-log-sleep" class="btn-icon" aria-label="Close modal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="form-log-sleep" novalidate>
+            <div class="form-group">
+              <label for="sleep-form-date" class="form-label">Date (Night of Sleep)</label>
+              <input type="date" id="sleep-form-date" class="input-control" required>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label for="sleep-form-bedtime" class="form-label">Bedtime</label>
+                <input type="time" id="sleep-form-bedtime" class="input-control" required>
+              </div>
+              <div class="form-group">
+                <label for="sleep-form-wake" class="form-label">Wake Time</label>
+                <input type="time" id="sleep-form-wake" class="input-control" required>
+              </div>
+            </div>
+
+            <!-- Sleep Latency (Minutes to fall asleep) -->
+            <div class="form-group">
+              <label for="sleep-form-latency" class="form-label">
+                Time to Fall Asleep <span class="unit">(minutes)</span>
+              </label>
+              <div class="input-wrapper">
+                <input 
+                  type="number" 
+                  id="sleep-form-latency" 
+                  class="input-control" 
+                  min="0" 
+                  max="180" 
+                  value="15" 
+                  inputmode="numeric" 
+                  required
+                >
+              </div>
+            </div>
+
+            <!-- Toggles for Key Consolidation Metrics -->
+            <div class="form-group">
+              <label class="toggle-switch-row" for="sleep-form-under-20">
+                <div>
+                  <span class="toggle-switch-label">Fell asleep within 20 minutes?</span>
+                  <span class="toggle-switch-subtext">Key indicator of sleep pressure</span>
+                </div>
+                <div class="cue-checkbox-wrapper">
+                  <input type="checkbox" id="sleep-form-under-20" checked>
+                </div>
+              </label>
+
+              <label class="toggle-switch-row" for="sleep-form-slept-through">
+                <div>
+                  <span class="toggle-switch-label">Slept through the night?</span>
+                  <span class="toggle-switch-subtext">No prolonged awakenings (&gt; 20m)</span>
+                </div>
+                <div class="cue-checkbox-wrapper">
+                  <input type="checkbox" id="sleep-form-slept-through" checked>
+                </div>
+              </label>
+
+              <div id="sleep-form-interruptions-row" style="display: none; padding: 8px 0;">
+                <label for="sleep-form-interruptions" class="form-label">Number of Prolonged Awakenings</label>
+                <input type="number" id="sleep-form-interruptions" class="input-control" min="1" max="10" value="1">
+              </div>
+
+              <label class="toggle-switch-row" for="sleep-form-early">
+                <div>
+                  <span class="toggle-switch-label">Experienced Early Awakening?</span>
+                  <span class="toggle-switch-subtext">Woke prematurely prior to anchor time</span>
+                </div>
+                <div class="cue-checkbox-wrapper">
+                  <input type="checkbox" id="sleep-form-early">
+                </div>
+              </label>
+            </div>
+
+            <div id="sleep-form-early-preview" class="form-alert-preview" style="display: none;">
+              ⚠️ <strong>Early Awakening Flagged:</strong> The algorithm will keep your target bedtime steady tonight. Delayed morning light protocol applies upon wake up.
+            </div>
+
+            <div class="form-group">
+              <label for="sleep-form-notes" class="form-label">Notes (Optional)</label>
+              <textarea id="sleep-form-notes" class="input-control" rows="2" placeholder="e.g. Felt restful, room was cool..."></textarea>
+            </div>
+
+            <div class="modal-actions">
+              <button type="submit" class="btn btn-primary" style="width: 100%;">Evaluate & Save Sleep</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         ANCHOR WAKE TIME SETTINGS MODAL
+         ===================================================================== -->
+    <div id="modal-anchor-settings" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-anchor-title">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="modal-anchor-title">Circadian Anchor Calibration</h3>
+          <button type="button" id="btn-close-anchor-cfg" class="btn-icon" aria-label="Close modal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="modal-note">
+            Your Anchor Wake Time is the non-negotiable anchor for your master circadian rhythm. The Shift-and-Expand algorithm preserves this wake time and adjusts your target bedtime in 15-minute increments based on sleep consolidation.
+          </div>
+
+          <form id="form-anchor-settings" novalidate>
+            <div class="form-group">
+              <label for="cfg-anchor-wake-time" class="form-label">Anchor Wake Time (Fixed)</label>
+              <input type="time" id="cfg-anchor-wake-time" class="input-control" value="07:00" required>
+            </div>
+
+            <div class="form-group">
+              <label for="cfg-target-bedtime" class="form-label">Baseline Target Bedtime</label>
+              <input type="time" id="cfg-target-bedtime" class="input-control" value="23:30" required>
+            </div>
+
+            <div class="form-group">
+              <label for="cfg-caffeine-cutoff" class="form-label">Caffeine Cut-off Time</label>
+              <input type="time" id="cfg-caffeine-cutoff" class="input-control" value="14:00" required>
+            </div>
+
+            <div class="modal-actions">
+              <button type="submit" class="btn btn-primary" style="width: 100%;">Save Circadian Calibration</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         THE 20-MINUTE RULE GUIDE MODAL (NIGHTTIME INTERRUPTION PROTOCOL)
+         ===================================================================== -->
+    <div id="modal-night-interruption" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-night-title">
+      <div class="modal-card night-guide-card">
+        <div class="night-guide-header">
+          <h3 id="modal-night-title">🌙 The 20-Minute Rule Protocol</h3>
+          <button type="button" id="btn-close-night-guide" class="btn-icon" aria-label="Close protocol guide">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="night-guide-body">
+          <div class="night-guide-intro">
+            Awake in the middle of the night? Follow this structured protocol to decondition wakefulness in bed and rebuild homeostatic sleep pressure.
+          </div>
+
+          <div class="protocol-steps-list">
+            <div class="protocol-step">
+              <span class="step-num-bubble">1</span>
+              <div class="step-content">
+                <h4>Check the 20-Minute Threshold</h4>
+                <p>If awake in bed for roughly 20 minutes without drifting off, do NOT stay in bed tossing and turning. Remaining in bed trains your nervous system to associate your bed with wakeful arousal.</p>
+              </div>
+            </div>
+
+            <div class="protocol-step">
+              <span class="step-num-bubble">2</span>
+              <div class="step-content">
+                <h4>Leave the Bed Immediately</h4>
+                <p>Get up and move to a different room or a comfortable chair in your bedroom. Keep the sleeping bed strictly reserved for sleep.</p>
+              </div>
+            </div>
+
+            <div class="protocol-step">
+              <span class="step-num-bubble">3</span>
+              <div class="step-content">
+                <h4>Strict Low-Lighting Only</h4>
+                <p>Keep the environment very dim. Use amber or red nightlights. Never turn on bright overhead LEDs or bathroom fluorescent lights.</p>
+              </div>
+            </div>
+
+            <div class="protocol-step">
+              <span class="step-num-bubble">4</span>
+              <div class="step-content">
+                <h4>Engage in Low-Stimulus Activity</h4>
+                <p>Read a physical book (non-suspenseful, non-work), do gentle stretching, or practice physiological sighs (two quick inhales through the nose, long slow exhale through the mouth).</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="time-cue-warning-box">
+            <div class="time-cue-title">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              Zero Time Cues Rule
+            </div>
+            <div class="time-cue-text">
+              Do <strong>NOT</strong> look at clocks, watches, or phone screens. Calculating how many hours remain spikes sympathetic cortisol and delays melatonin synthesis. Turn all clock displays away.
+            </div>
+          </div>
+
+          <div class="protocol-steps-list">
+            <div class="protocol-step">
+              <span class="step-num-bubble">5</span>
+              <div class="step-content">
+                <h4>Return Only When Drowsy</h4>
+                <p>Return to bed only when genuine drowsiness returns and your eyelids feel heavy. If awake for another 20 minutes, repeat the protocol.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-actions" style="margin-top: 20px;">
+            <button type="button" class="btn btn-primary" onclick="closeNightInterruptionModal()" style="width: 100%;">
+              Understood — Going to Rest
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- Application Logic -->
   <script src="./public/js/app.js" defer></script>
+  <script src="./public/js/sleep.js" defer></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-﻿# Stationary Bike Workout Tracker (VeloLog)
+# Stationary Bike Workout Tracker (VeloLog)
 
 A lightweight, mobile-first web application designed specifically for recording and analyzing personal stationary bike workouts on a smartphone.
 
@@ -21,10 +21,14 @@ Built with vanilla **HTML5**, **CSS3**, and **JavaScript**, backed by **Supabase
 - 🕒 **Tab 3: Recent Workouts**:
   - Displays the last 10 workout sessions in clean chronological cards.
   - Relative dates ("Today", "Yesterday", or formatted dates), key metrics, and program/load chips.
+- 🌙 **Tab 4: Circadian Sleep Coaching**:
+  - **The Shift-and-Expand Algorithm**: Anchor wake time circadian locking with rolling 15-minute bedtime shifts awarded after 3 consecutive consolidated nights (latency $\le 20$ min, no interruptions, no premature awakenings). If premature awakenings occur, bedtime remains steady to consolidate sleep pressure.
+  - **Daily Circadian Cue Checklist**: Real-time behavioral cue tracking (Morning daylight 15–20m, Caffeine cut-off by 2:00 PM, Light dimming 90m pre-bed, Core temperature drop warm bath/shower 60–90m pre-bed).
+  - **Clinical Protocols**: Interactive 20-minute rule guide for nighttime awakenings (low-stimulus engagement, non-stimulating UI, zero time cues) and delayed morning light warning on early awakenings to prevent SCN phase-advances.
 - ⚡ **Offline-First & Auto-Sync**:
-  - If you log a workout in a basement or garage with poor or no internet connection, it is automatically queued in local storage.
-  - Workouts recorded offline are immediately visible in your Recent list and Stats with a *"Pending Sync"* badge.
-  - As soon as your phone reconnects to Wi-Fi/cellular, the app automatically syncs all queued rides to Supabase.
+  - If you log a workout or sleep session in a basement or garage with poor or no internet connection, it is automatically queued in local storage.
+  - Workouts and sleep data recorded offline are immediately visible with local persistence.
+  - As soon as your phone reconnects to Wi-Fi/cellular, the app automatically syncs all queued records to Supabase.
 - ⚙️ **Zero Build Step & Client Config**:
   - Run directly in any browser.
   - Credentials can be configured in `public/js/app.js` or directly entered in the in-app Settings (⚙️) modal.
@@ -40,8 +44,9 @@ Built with vanilla **HTML5**, **CSS3**, and **JavaScript**, backed by **Supabase
 3. Open or copy the contents of [`supabase_schema.sql`](./supabase_schema.sql) from this repository.
 4. Click **Run**. This creates:
    - The `workouts` table with all fields and check constraints (1 to 10 scale for program and load).
-   - An index on `date DESC` for query performance.
-   - Row Level Security (RLS) policies allowing read and insert operations with the public anonymous API key.
+   - The `sleep_profiles`, `sleep_logs`, and `circadian_habit_logs` tables.
+   - Indices for fast chronological queries.
+   - Row Level Security (RLS) policies allowing read, insert, and update operations with the public anonymous API key.
 
 ### 2. Configure Credentials
 
@@ -62,11 +67,14 @@ const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsIn...';
 
 ---
 
-## Local Development & Preview
+## Local Development & Testing
 
 Because this project uses vanilla HTML, CSS, and JS with Supabase loaded via CDN, there are no dependencies to install and no build tools required:
 
 ```powershell
+# Run the automated test suite for the Circadian Sleep Coaching algorithm
+node test/circadian-sleep.test.js
+
 # Preview with any lightweight static server (e.g., npx serve)
 npx serve .
 
@@ -82,8 +90,8 @@ Open `http://localhost:3000` (or `http://localhost:8000`) in your browser or mob
 1. Push this repository to GitHub:
    ```bash
    git add .
-   git commit -m "Build mobile-first stationary bike workout tracker"
-   git push origin main
+   git commit -m "Add Circadian Sleep Coaching module and Shift-and-Expand algorithm"
+   git push origin feature/circadian-sleep-coaching
    ```
 2. Go to your repository on GitHub:
    - Navigate to **Settings** -> **Pages**.
@@ -98,7 +106,7 @@ Open `http://localhost:3000` (or `http://localhost:8000`) in your browser or mob
 
 ## Database Schema Reference
 
-Table: `workouts`
+### Table: `workouts`
 
 | Column | Type | Description |
 | :--- | :--- | :--- |
@@ -111,3 +119,42 @@ Table: `workouts`
 | `bike_program_level` | `INTEGER` | Bike program setting (1–10) |
 | `bike_load_level` | `INTEGER` | Bike resistance/load setting (1–10) |
 | `created_at` | `TIMESTAMPTZ` | Record creation timestamp |
+
+### Table: `sleep_profiles`
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `id` | `UUID` | Primary Key |
+| `anchor_wake_time` | `TIME` | Fixed non-negotiable anchor wake time (default `07:00`) |
+| `target_bedtime` | `TIME` | Current recommended target bedtime (default `23:30`) |
+| `caffeine_cutoff_time` | `TIME` | Configured caffeine cessation time (default `14:00`) |
+| `consecutive_success_days` | `INTEGER` | Trailing consolidated nights toward next shift (0 to 3) |
+| `total_shifts_applied` | `INTEGER` | Cumulative 15-minute expansions achieved |
+| `updated_at` | `TIMESTAMPTZ` | Timestamp of last profile update |
+
+### Table: `sleep_logs`
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `id` | `UUID` | Primary Key |
+| `sleep_date` | `DATE` | Unique night date (YYYY-MM-DD) |
+| `bedtime` | `TIME` | Bedtime recorded |
+| `wake_time` | `TIME` | Wake time recorded |
+| `latency_minutes` | `INTEGER` | Time taken to fall asleep (minutes) |
+| `fell_asleep_under_20min`| `BOOLEAN` | True if latency $\le 20$ minutes |
+| `slept_through` | `BOOLEAN` | True if no disruptive awakenings ($> 20$m) |
+| `early_awakening` | `BOOLEAN` | True if awoke prematurely prior to anchor time |
+| `night_interruptions` | `INTEGER` | Count of nighttime awakenings |
+| `is_consolidated_success` | `BOOLEAN` | Night met all consolidation criteria |
+| `shift_awarded` | `BOOLEAN` | True if this log triggered a 15-minute shift |
+
+### Table: `circadian_habit_logs`
+
+| Column | Type | Description |
+| :--- | :--- | :--- |
+| `id` | `UUID` | Primary Key |
+| `log_date` | `DATE` | Habit date (YYYY-MM-DD) |
+| `morning_light_done` | `BOOLEAN` | 15–20m natural daylight within 30m of wake |
+| `caffeine_cutoff_done`| `BOOLEAN` | Caffeine ceased by cut-off time |
+| `light_dimming_done` | `BOOLEAN` | Overhead lights dimmed 90m before target bedtime |
+| `temp_drop_done` | `BOOLEAN` | Warm bath/shower 60–90m before bedtime |

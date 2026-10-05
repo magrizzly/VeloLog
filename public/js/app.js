@@ -478,6 +478,10 @@ function switchTab(tabId) {
     loadRecentWorkouts();
   } else if (tabId === 'tab-stats') {
     loadStats();
+  } else if (tabId === 'tab-sleep') {
+    if (typeof window.renderSleepDashboard === 'function') {
+      window.renderSleepDashboard();
+    }
   }
 }
 

@@ -649,12 +649,12 @@ function openLogSleepModal() {
   if (interruptionsRow) interruptionsRow.style.display = 'none';
   if (earlyWarningPreview) earlyWarningPreview.style.display = 'none';
 
-  modal.classList.add('active');
+  modal.classList.add('open', 'active');
 }
 
 function closeLogSleepModal() {
   const modal = document.getElementById('modal-log-sleep');
-  if (modal) modal.classList.remove('active');
+  if (modal) modal.classList.remove('open', 'active');
 }
 
 function openAnchorSettingsModal() {
@@ -670,22 +670,22 @@ function openAnchorSettingsModal() {
   if (targetBedInput) targetBedInput.value = profile.target_bedtime || '23:30';
   if (caffeineInput) caffeineInput.value = profile.caffeine_cutoff_time || '14:00';
 
-  modal.classList.add('active');
+  modal.classList.add('open', 'active');
 }
 
 function closeAnchorSettingsModal() {
   const modal = document.getElementById('modal-anchor-settings');
-  if (modal) modal.classList.remove('active');
+  if (modal) modal.classList.remove('open', 'active');
 }
 
 function openNightInterruptionModal() {
   const modal = document.getElementById('modal-night-interruption');
-  if (modal) modal.classList.add('active');
+  if (modal) modal.classList.add('open', 'active');
 }
 
 function closeNightInterruptionModal() {
   const modal = document.getElementById('modal-night-interruption');
-  if (modal) modal.classList.remove('active');
+  if (modal) modal.classList.remove('open', 'active');
 }
 
 // ============================================================================
@@ -712,7 +712,7 @@ function bindSleepEvents() {
   document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', e => {
       if (e.target === overlay) {
-        overlay.classList.remove('active');
+        overlay.classList.remove('open', 'active');
       }
     });
   });

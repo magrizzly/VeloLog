@@ -378,7 +378,7 @@
             <h2>Circadian Sleep</h2>
             <p>Shift-and-expand sleep consolidation</p>
           </div>
-          <button type="button" id="btn-open-anchor-cfg" class="btn-icon" aria-label="Calibrate Anchor Wake Time" title="Calibrate Anchor Settings">
+          <button type="button" id="btn-open-anchor-cfg" class="btn-icon" aria-label="Calibrate Anchor Wake Time" title="Calibrate Anchor Settings" onclick="openAnchorSettingsModal()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="10"></circle>
               <polyline points="12 6 12 12 14 14"></polyline>
@@ -428,11 +428,11 @@
 
         <!-- Quick Action Buttons -->
         <div class="sleep-action-row">
-          <button type="button" id="btn-open-log-sleep" class="btn-sleep-action btn-log">
+          <button type="button" id="btn-open-log-sleep" class="btn-sleep-action btn-log" onclick="openLogSleepModal()">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
             Log Sleep
           </button>
-          <button type="button" id="btn-open-night-guide" class="btn-sleep-action btn-night-guide">
+          <button type="button" id="btn-open-night-guide" class="btn-sleep-action btn-night-guide" onclick="openNightInterruptionModal()">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
             🌙 20-Min Rule
           </button>

@@ -662,3 +662,9 @@
   color: #fca5a5;
   line-height: 1.4;
 }
+
+/* Modal overlay display rule compatibility */
+.modal-overlay.open,
+.modal-overlay.active {
+  display: flex !important;
+}
